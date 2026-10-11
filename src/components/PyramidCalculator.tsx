@@ -9,10 +9,15 @@ import {
   AlertCircle,
   CheckCircle2,
   ListPlus,
+  Wind,
+  Sliders,
+  BookOpen,
 } from 'lucide-react';
 import { CalculationResult, FormulationState, PyramidNote } from '../types/perfume';
 import { CURATED_FORMULA_PRESETS, POPULAR_NOTES_DIRECTORY } from '../data/presets';
 import { calculatePyramidBreakdown, formatNum } from '../utils/calculations';
+import { FragrancePyramidGraphic } from './FragrancePyramidGraphic';
+import { CalculatorCriteriaGuide } from './CalculatorCriteriaGuide';
 import compoundingImg from '../assets/images/perfume_lab_compounding_1791692420116.jpg';
 
 interface PyramidCalculatorProps {
@@ -28,6 +33,7 @@ export const PyramidCalculator: React.FC<PyramidCalculatorProps> = ({
   setPyramidNotes,
   result,
 }) => {
+  const [viewMode, setViewMode] = useState<'graphic' | 'compounding' | 'both' | 'guide'>('graphic');
   const [selectedDirectoryCategory, setSelectedDirectoryCategory] = useState<'all' | 'top' | 'heart' | 'base'>('all');
   const [newNoteName, setNewNoteName] = useState('');
   const [newNoteCategory, setNewNoteCategory] = useState<'top' | 'heart' | 'base'>('top');
@@ -90,17 +96,82 @@ export const PyramidCalculator: React.FC<PyramidCalculatorProps> = ({
 
   return (
     <div className="space-y-8">
-      {/* Section Header */}
-      <div className="border-b border-stone-200/80 pb-5">
-        <h2 className="text-xl sm:text-2xl font-bold text-stone-900 font-serif-luxury">
-          حاسبة الهرم العطري ومزج الزيوت الخام
-        </h2>
-        <p className="text-stone-500 text-sm mt-1">
-          وزّع إجمالي الزيت العطري ({formatNum(result.oilWeightGrams)} جم) بين نوتات القمة والقلب والقاعدة لتحقيق فوحان وثبات متناسقين.
-        </p>
+      {/* Section Header with View Mode Tabs */}
+      <div className="border-b border-stone-200/80 pb-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-stone-900 font-serif-luxury">
+            حاسبة الهرم العطري ومزج الزيوت الخام
+          </h2>
+          <p className="text-stone-500 text-sm mt-1">
+            وزّع إجمالي الزيت العطري ({formatNum(result.oilWeightGrams)} جم) بين نوتات القمة والقلب والقاعدة لتحقيق فوحان وثبات متناسقين.
+          </p>
+        </div>
+
+        {/* View mode toggle */}
+        <div className="inline-flex p-1 bg-stone-100 rounded-2xl border border-stone-200 text-xs font-semibold shrink-0">
+          <button
+            type="button"
+            onClick={() => setViewMode('graphic')}
+            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+              viewMode === 'graphic'
+                ? 'bg-amber-600 text-white shadow-sm font-bold'
+                : 'text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <Wind className="w-3.5 h-3.5" />
+            <span>جرافيك الهرم وسيناريو الرش 💨</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('compounding')}
+            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+              viewMode === 'compounding'
+                ? 'bg-stone-900 text-white shadow-sm font-bold'
+                : 'text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <Beaker className="w-3.5 h-3.5" />
+            <span>جدول موازين المعمل 🧪</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('both')}
+            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+              viewMode === 'both'
+                ? 'bg-stone-900 text-white shadow-sm font-bold'
+                : 'text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>العرض الشامل 📐</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('guide')}
+            className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+              viewMode === 'guide'
+                ? 'bg-amber-900 text-white shadow-sm font-bold'
+                : 'text-amber-800 hover:text-amber-950 font-bold bg-amber-500/10'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5 text-amber-500" />
+            <span>شرح المعايير 📚</span>
+          </button>
+        </div>
       </div>
 
-      {/* Preset Loader Strip */}
+      {/* 0. Criteria Guide View */}
+      {viewMode === 'guide' && (
+        <div className="animate-in fade-in">
+          <CalculatorCriteriaGuide onClose={() => setViewMode('graphic')} />
+        </div>
+      )}
+
+      {/* Preset Loader Strip (shown when not in guide mode) */}
+      {viewMode !== 'guide' && (
       <div className="bg-white p-4 rounded-xl border border-stone-200/80 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs font-semibold text-stone-800">
           <Sparkles className="w-4 h-4 text-amber-700" />
@@ -118,8 +189,147 @@ export const PyramidCalculator: React.FC<PyramidCalculatorProps> = ({
           ))}
         </div>
       </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* 1. Graphic Fragrance Pyramid & Post-Spray Olfactory Evolution Scenario */}
+      {(viewMode === 'graphic' || viewMode === 'both') && (
+        <FragrancePyramidGraphic
+          pyramidNotes={pyramidNotes}
+          setPyramidNotes={setPyramidNotes}
+          result={result}
+          bottleVolumeMl={formulation.bottleVolumeMl}
+          concentrationPercent={formulation.concentrationPercent}
+        />
+      )}
+
+      {/* Quick Add and Directory in Graphic View */}
+      {viewMode === 'graphic' && (
+        <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-sm space-y-6">
+          <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+            <span className="text-xs font-bold text-stone-900 flex items-center gap-2">
+              <Plus className="w-4 h-4 text-amber-600" />
+              <span>إضافة زيوت عطرية جديدة إلى الهرم:</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setViewMode('compounding')}
+              className="text-xs text-amber-700 hover:text-amber-800 font-semibold cursor-pointer"
+            >
+              عرض جدول موازين المعمل الكامل ←
+            </button>
+          </div>
+
+          <form onSubmit={handleAddCustomNote} className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+            <div className="sm:col-span-5">
+              <input
+                type="text"
+                placeholder="اسم الزيت العطري (مثل: برغموت صقلي، ياسمين، دهن عود...)"
+                value={newNoteName}
+                onChange={(e) => setNewNoteName(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:border-amber-600"
+              />
+            </div>
+
+            <div className="sm:col-span-3">
+              <select
+                value={newNoteCategory}
+                onChange={(e) => setNewNoteCategory(e.target.value as any)}
+                className="w-full px-3 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-900 focus:outline-none focus:border-amber-600"
+              >
+                <option value="top">قمة العطر (Top - الأسرع طيراناً)</option>
+                <option value="heart">قلب العطر (Heart - الفوحان المتوسط)</option>
+                <option value="base">قاعدة العطر (Base - الثبات الأقصى)</option>
+              </select>
+            </div>
+
+            <div className="sm:col-span-2">
+              <div className="relative">
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="1"
+                  value={newNotePct}
+                  onChange={(e) => setNewNotePct(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-mono-numbers text-stone-900 focus:outline-none focus:border-amber-600"
+                />
+                <span className="absolute left-3 top-2.5 text-xs text-stone-400">%</span>
+              </div>
+            </div>
+
+            <div className="sm:col-span-2">
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>إدراج بالهرم</span>
+              </button>
+            </div>
+          </form>
+
+          {/* Quick Directory Chips */}
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center justify-between text-xs text-stone-600">
+              <span className="font-semibold flex items-center gap-1.5">
+                <ListPlus className="w-3.5 h-3.5 text-amber-700" />
+                <span>نقر سريع لإضافة أشهر النوتات العالمية إلى الهرم:</span>
+              </span>
+              <div className="flex items-center gap-1 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDirectoryCategory('all')}
+                  className={`px-2 py-0.5 rounded ${selectedDirectoryCategory === 'all' ? 'bg-stone-900 text-white font-medium' : 'text-stone-500'}`}
+                >
+                  الكل
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDirectoryCategory('top')}
+                  className={`px-2 py-0.5 rounded ${selectedDirectoryCategory === 'top' ? 'bg-amber-500 text-stone-950 font-bold' : 'text-stone-500'}`}
+                >
+                  قمة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDirectoryCategory('heart')}
+                  className={`px-2 py-0.5 rounded ${selectedDirectoryCategory === 'heart' ? 'bg-stone-800 text-white font-bold' : 'text-stone-500'}`}
+                >
+                  قلب
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDirectoryCategory('base')}
+                  className={`px-2 py-0.5 rounded ${selectedDirectoryCategory === 'base' ? 'bg-amber-950 text-amber-300 font-bold' : 'text-stone-500'}`}
+                >
+                  قاعدة
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pt-1">
+              {POPULAR_NOTES_DIRECTORY.filter(
+                (note) => selectedDirectoryCategory === 'all' || note.category === selectedDirectoryCategory
+              ).map((note, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleAddFromDirectory(note)}
+                  className="px-2.5 py-1 text-[11px] rounded-lg bg-stone-50 hover:bg-amber-50 hover:border-amber-300 border border-stone-200 text-stone-800 transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3 h-3 text-amber-700" />
+                  <span>{note.nameAr}</span>
+                  <span className="text-[9px] text-stone-400">({note.family})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Classic Compounding Laboratory Grid */}
+      {(viewMode === 'compounding' || viewMode === 'both') && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Visual Pyramid & Balance Indicator */}
         <div className="lg:col-span-5 space-y-6">
 
@@ -453,6 +663,7 @@ export const PyramidCalculator: React.FC<PyramidCalculatorProps> = ({
 
         </div>
       </div>
+      )}
     </div>
   );
 };

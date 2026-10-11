@@ -63,6 +63,12 @@ export interface PyramidNote {
   category: 'top' | 'heart' | 'base';
   percentageOfOil: number; // percentage of the oil phase (must sum to 100)
   description?: string;
+  volatilityRate?: string; // e.g. 'سريع جداً (1-15 دقيقة)'
+  volatilityRank?: number; // 1 (أسرع تطايراً) إلى 10 (الأعلى ثباتاً)
+  qualityGrade?: string; // e.g. 'درجة فاخرة A+', 'نقي طبيعي 100%'
+  scentFamily?: string; // e.g. 'حمضيات', 'زهور', 'أخشاب'
+  evaporationTime?: string;
+  diffusionRadius?: string;
 }
 
 export interface SavedFormula {

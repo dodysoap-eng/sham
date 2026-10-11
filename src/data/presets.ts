@@ -72,18 +72,13 @@ export const BOTTLE_SIZE_PRESETS = [
   { ml: 200, labelAr: '200 مل (حجم اقتصادي كبير)', labelEn: '200 ml (Jumbo)' },
 ];
 
-export const CURRENCY_OPTIONS = [
-  { code: 'SAR', label: 'ريال سعودي (SAR)' },
-  { code: 'AED', label: 'درهم إماراتي (AED)' },
-  { code: 'KWD', label: 'دينار كويتي (KWD)' },
-  { code: 'QAR', label: 'ريال قطري (QAR)' },
-  { code: 'BHD', label: 'دينار بحريني (BHD)' },
-  { code: 'OMR', label: 'ريال عماني (OMR)' },
-  { code: 'EGP', label: 'جنيه مصري (EGP)' },
-  { code: 'JOD', label: 'دينار أردني (JOD)' },
-  { code: 'USD', label: 'دولار أمريكي (USD $)' },
-  { code: 'EUR', label: 'يورو (EUR €)' },
-];
+import { WORLD_CURRENCIES } from './worldCurrencies';
+
+export const CURRENCY_OPTIONS = WORLD_CURRENCIES.map((c) => ({
+  code: c.code,
+  label: `${c.flag} ${c.nameAr} (${c.code} ${c.symbolAr})`,
+  labelEn: `${c.flag} ${c.code} - ${c.nameEn} (${c.symbolEn})`,
+}));
 
 export const CURATED_FORMULA_PRESETS: SavedFormula[] = [
   {

@@ -31,7 +31,7 @@ export const SUPPORTED_LANGUAGES: LanguageConfig[] = [
   { code: 'fa', name: 'Persian', nativeName: 'فارسی', dir: 'rtl', flag: '🇮🇷' },
 ];
 
-export type TranslationKey =
+export type KnownTranslationKey =
   | 'brand_name'
   | 'brand_subtitle'
   | 'tagline'
@@ -74,3 +74,6 @@ export type TranslationKey =
   | 'load_formula'
   | 'copy'
   | 'copied';
+
+export type TranslationKey = KnownTranslationKey | (string & {});
+

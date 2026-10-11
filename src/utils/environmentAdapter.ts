@@ -119,7 +119,17 @@ export function getInitialUserEnvironment(): UserEnvironmentProfile {
 
     // Auto-detect country based on geo detector
     const detected = detectUserCountryAndLanguage();
-    return createEnvironmentProfileFromCountry(detected.detectedCountry);
+    const profile = createEnvironmentProfileFromCountry(detected.detectedCountry);
+    const customCurr = localStorage.getItem('sham_perfume_custom_currency');
+    if (customCurr) {
+      const parsed = JSON.parse(customCurr);
+      if (parsed.currencyCode) {
+        profile.currencyCode = parsed.currencyCode;
+        profile.currencySymbolAr = parsed.currencySymbolAr || parsed.currencyCode;
+        profile.currencySymbolEn = parsed.currencySymbolEn || parsed.currencyCode;
+      }
+    }
+    return profile;
   } catch (e) {
     // fallback
   }
@@ -145,4 +155,28 @@ export function saveUserEnvironment(countryCodeOrId: string): UserEnvironmentPro
     console.error('Failed to save environment profile', e);
   }
   return profile;
+}
+
+export function updateProfileCurrency(
+  profile: UserEnvironmentProfile,
+  currencyCode: string,
+  symbolAr?: string,
+  symbolEn?: string
+): UserEnvironmentProfile {
+  const updated: UserEnvironmentProfile = {
+    ...profile,
+    currencyCode: currencyCode.toUpperCase(),
+    currencySymbolAr: symbolAr || currencyCode,
+    currencySymbolEn: symbolEn || currencyCode,
+  };
+  try {
+    localStorage.setItem('sham_perfume_custom_currency', JSON.stringify({
+      currencyCode: updated.currencyCode,
+      currencySymbolAr: updated.currencySymbolAr,
+      currencySymbolEn: updated.currencySymbolEn,
+    }));
+  } catch (e) {
+    // ignore
+  }
+  return updated;
 }

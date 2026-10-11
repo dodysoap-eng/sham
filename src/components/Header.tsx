@@ -251,6 +251,15 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile & Tablet Secondary Navigation Strip */}
       <div className="2xl:hidden flex items-center gap-2 overflow-x-auto pt-2 mt-2 border-t border-stone-100 text-xs no-scrollbar">
+        {/* Quick Language Switcher on Mobile/Tablet */}
+        <div className="shrink-0">
+          <LanguageSelector
+            currentLang={currentLang}
+            onSelectLanguage={onSelectLanguage}
+            compactMobile
+          />
+        </div>
+
         {navItems.map((item) => (
           <button
             key={item.id}

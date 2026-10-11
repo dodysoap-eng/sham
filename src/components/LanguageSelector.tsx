@@ -1,17 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Globe, Check, ChevronDown } from 'lucide-react';
+import { Globe, Check, ChevronDown, Search, Sparkles, Languages } from 'lucide-react';
 import { SupportedLanguage, SUPPORTED_LANGUAGES, LanguageConfig } from '../types/i18n';
 
 interface LanguageSelectorProps {
   currentLang: SupportedLanguage;
   onSelectLanguage: (lang: SupportedLanguage) => void;
+  compactMobile?: boolean;
 }
 
 export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   currentLang,
   onSelectLanguage,
+  compactMobile = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const activeConfig =
@@ -23,59 +26,178 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         setIsOpen(false);
       }
     };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
+
+  // Filter languages based on search query
+  const filteredLanguages = SUPPORTED_LANGUAGES.filter((lang) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase().trim();
+    return (
+      lang.name.toLowerCase().includes(query) ||
+      lang.nativeName.toLowerCase().includes(query) ||
+      lang.code.toLowerCase().includes(query)
+    );
+  });
 
   return (
     <div className="relative" ref={dropdownRef}>
+      {/* Trigger Button - Clearly labeled as "خانة تغيير اللغة" */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-stone-200 hover:border-stone-300 bg-white text-stone-700 text-xs font-medium transition-all shadow-2xs cursor-pointer"
-        title="تغيير لغة الموقع / Change Language"
+        className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border transition-all cursor-pointer shadow-xs select-none ${
+          isOpen
+            ? 'bg-amber-50/90 border-amber-400 ring-2 ring-amber-300/40 text-stone-900'
+            : 'bg-white hover:bg-stone-50 border-stone-200 hover:border-amber-300 text-stone-800'
+        } ${compactMobile ? 'text-[11px] py-1 px-2' : 'text-xs'}`}
+        title="خانة تغيير لغة المنصة / Change Platform Language"
+        aria-label="خانة تغيير اللغة"
+        aria-expanded={isOpen}
       >
-        <span className="text-sm">{activeConfig.flag}</span>
-        <span className="hidden sm:inline font-semibold">{activeConfig.nativeName}</span>
-        <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-md bg-amber-100/80 text-amber-900 flex items-center justify-center shrink-0">
+            <Globe className="w-3.5 h-3.5 text-amber-800" />
+          </div>
+          
+          {/* Explicit label: اللغة */}
+          <span className="font-extrabold text-[11px] text-amber-900 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60 hidden md:inline">
+            اللغة
+          </span>
+
+          <span className="text-sm leading-none" role="img" aria-label={activeConfig.name}>
+            {activeConfig.flag}
+          </span>
+
+          <span className="font-bold text-stone-900 truncate max-w-[85px] sm:max-w-[100px]">
+            {activeConfig.nativeName}
+          </span>
+        </div>
+
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-stone-400 transition-transform duration-200 ${
+            isOpen ? 'rotate-180 text-amber-700' : ''
+          }`}
+        />
       </button>
 
+      {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute top-full mt-1.5 left-0 sm:right-0 sm:left-auto z-50 w-56 rounded-2xl bg-white border border-stone-200 shadow-xl overflow-hidden py-1.5 animate-in fade-in zoom-in-95 text-xs text-stone-800">
-          <div className="px-3 py-2 border-b border-stone-100 flex items-center justify-between text-[11px] font-bold text-stone-400 uppercase tracking-wider">
-            <span className="flex items-center gap-1">
-              <Globe className="w-3 h-3 text-amber-700" />
-              <span>اختر لغة الموقع</span>
+        <div className="absolute top-full mt-2 left-0 sm:right-0 sm:left-auto z-50 w-72 sm:w-80 rounded-2xl bg-white border border-stone-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 text-xs text-stone-800">
+          
+          {/* Dropdown Header */}
+          <div className="px-4 py-3 bg-gradient-to-r from-stone-900 to-amber-950 text-white flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center border border-amber-500/30">
+                <Languages className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold text-sm text-amber-200">خانة تغيير لغة المنصة</div>
+                <div className="text-[10px] text-stone-300">اختر لغتك المفضلة (10 لغات عالمية)</div>
+              </div>
+            </div>
+            <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-mono font-bold">
+              {activeConfig.code.toUpperCase()} · {activeConfig.dir.toUpperCase()}
             </span>
-            <span>10 لغات</span>
           </div>
 
-          <div className="max-h-72 overflow-y-auto py-1">
-            {SUPPORTED_LANGUAGES.map((lang: LanguageConfig) => {
-              const isSelected = lang.code === currentLang;
-              return (
-                <button
-                  key={lang.code}
-                  onClick={() => {
-                    onSelectLanguage(lang.code);
-                    setIsOpen(false);
-                  }}
-                  className={`w-full px-3 py-2 flex items-center justify-between transition-colors cursor-pointer ${
-                    isSelected
-                      ? 'bg-amber-50 text-amber-900 font-bold'
-                      : 'hover:bg-stone-50 text-stone-700'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-base">{lang.flag}</span>
-                    <div className="text-right">
-                      <div className="font-medium">{lang.nativeName}</div>
-                      <div className="text-[10px] text-stone-400">{lang.name} ({lang.dir.toUpperCase()})</div>
+          {/* Quick Search Field */}
+          <div className="p-2.5 border-b border-stone-100 bg-stone-50/70">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="ابحث عن لغة (مثال: العربية, English, Français)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-3 pr-8 py-1.5 bg-white border border-stone-200 rounded-xl text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-500 transition-all"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          {/* Languages List */}
+          <div className="max-h-72 overflow-y-auto py-1.5 divide-y divide-stone-100/60">
+            {filteredLanguages.length === 0 ? (
+              <div className="py-6 text-center text-stone-400 text-xs">
+                لم يتم العثور على لغة مطابقة للبحث
+              </div>
+            ) : (
+              filteredLanguages.map((lang: LanguageConfig) => {
+                const isSelected = lang.code === currentLang;
+                return (
+                  <button
+                    key={lang.code}
+                    onClick={() => {
+                      onSelectLanguage(lang.code);
+                      setIsOpen(false);
+                      setSearchQuery('');
+                    }}
+                    className={`w-full px-3.5 py-2.5 flex items-center justify-between transition-all cursor-pointer text-right group ${
+                      isSelected
+                        ? 'bg-amber-50/90 text-amber-950 font-bold'
+                        : 'hover:bg-stone-50 text-stone-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl shrink-0 group-hover:scale-110 transition-transform">
+                        {lang.flag}
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-stone-900 group-hover:text-amber-850">
+                            {lang.nativeName}
+                          </span>
+                          <span className="text-[10px] text-stone-400 font-mono font-medium">
+                            ({lang.name})
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span
+                            className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-semibold ${
+                              lang.dir === 'rtl'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                                : 'bg-blue-50 text-blue-700 border border-blue-200/60'
+                            }`}
+                          >
+                            {lang.dir === 'rtl' ? 'يمين لليسار (RTL)' : 'Left-to-Right (LTR)'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  {isSelected && <Check className="w-4 h-4 text-amber-700" />}
-                </button>
-              );
-            })}
+
+                    {isSelected ? (
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-200/80 text-amber-950 text-[10px] font-bold">
+                        <Check className="w-3.5 h-3.5 text-amber-900 stroke-[3]" />
+                        <span>مفعلة</span>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-stone-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        اختيار
+                      </span>
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* Dropdown Footer Tip */}
+          <div className="px-3.5 py-2 border-t border-stone-100 bg-stone-50 text-[10px] text-stone-500 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-amber-700" />
+              <span>يتم حفظ اللغة تلقائياً في المتصفح</span>
+            </span>
+            <span className="font-mono text-stone-400">10 لغات</span>
           </div>
         </div>
       )}

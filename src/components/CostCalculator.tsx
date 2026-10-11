@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DollarSign,
   TrendingUp,
@@ -7,19 +7,34 @@ import {
   HelpCircle,
   FileSpreadsheet,
   PieChart,
+  Globe,
+  Coins,
+  ArrowRightLeft,
+  Search,
 } from 'lucide-react';
 import { CalculationResult, CostingState, FormulationState } from '../types/perfume';
-import { CURRENCY_OPTIONS } from '../data/presets';
+import {
+  WORLD_CURRENCIES,
+  WorldCurrency,
+  findCurrencyByCode,
+  convertCurrency,
+} from '../data/worldCurrencies';
 import { calculatePerfumeCosting, formatNum } from '../utils/calculations';
 
 interface CostCalculatorProps {
   formulation: FormulationState;
   calculationResult: CalculationResult;
+  currentCurrencyCode?: string;
 }
+
+const POPULAR_CURRENCIES = [
+  'SAR', 'AED', 'KWD', 'QAR', 'BHD', 'OMR', 'EGP', 'JOD', 'IQD', 'MAD', 'DZD', 'USD', 'EUR', 'GBP', 'TRY'
+];
 
 export const CostCalculator: React.FC<CostCalculatorProps> = ({
   formulation,
   calculationResult,
+  currentCurrencyCode = 'SAR',
 }) => {
   const [costing, setCosting] = useState<CostingState>({
     oilCostPerKg: 650, // default SAR per kg for premium French/Oriental oil
@@ -29,10 +44,21 @@ export const CostCalculator: React.FC<CostCalculatorProps> = ({
     laborAndOverheadPerUnit: 6, // labor & blending
     batchSize: 50, // default batch of 50 bottles
     targetMarginPercent: 80, // 80% markup
-    currency: 'SAR',
+    currency: currentCurrencyCode || 'SAR',
   });
 
+  // Comparison custom currency for export benchmarking
+  const [comparisonCurrency, setComparisonCurrency] = useState<string>('USD');
+
+  // Sync if parent updates current currency code
+  useEffect(() => {
+    if (currentCurrencyCode && currentCurrencyCode !== costing.currency) {
+      setCosting((prev) => ({ ...prev, currency: currentCurrencyCode }));
+    }
+  }, [currentCurrencyCode]);
+
   const costResult = calculatePerfumeCosting(calculationResult, costing);
+  const activeCurrency = findCurrencyByCode(costing.currency);
 
   return (
     <div className="space-y-8">
@@ -50,26 +76,56 @@ export const CostCalculator: React.FC<CostCalculatorProps> = ({
         {/* Left Column: Cost Inputs */}
         <div className="lg:col-span-7 space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-5">
-            <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-              <span className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-amber-700" />
-                <span>تكاليف المواد الأولية والتعبئة</span>
-              </span>
-              <div className="flex items-center gap-1">
-                <label className="text-xs text-stone-500">العملة:</label>
-                <select
-                  value={costing.currency}
-                  onChange={(e) =>
-                    setCosting((prev) => ({ ...prev, currency: e.target.value }))
-                  }
-                  className="px-2 py-1 bg-stone-50 border border-stone-200 rounded text-xs font-semibold text-stone-800"
-                >
-                  {CURRENCY_OPTIONS.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
+            <div className="space-y-3 pb-3 border-b border-stone-100">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <span className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-amber-700" />
+                  <span>تكاليف المواد الأولية والتعبئة والتسعير</span>
+                </span>
+                
+                {/* All World Currencies Selector */}
+                <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                  <div className="flex items-center gap-1.5 bg-stone-50 border border-stone-300 rounded-xl px-2.5 py-1.5 text-xs">
+                    <span className="text-base">{activeCurrency.flag}</span>
+                    <select
+                      value={costing.currency}
+                      onChange={(e) =>
+                        setCosting((prev) => ({ ...prev, currency: e.target.value }))
+                      }
+                      className="bg-transparent font-bold text-stone-900 focus:outline-none cursor-pointer max-w-[220px]"
+                    >
+                      {WORLD_CURRENCIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.flag} {c.code} - {c.nameAr} ({c.symbolAr})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Popular Currency Selector Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">
+                <span className="text-stone-400 font-semibold shrink-0">اختيار سريع:</span>
+                {POPULAR_CURRENCIES.map((code) => {
+                  const curr = findCurrencyByCode(code);
+                  const isSelected = costing.currency === code;
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => setCosting((prev) => ({ ...prev, currency: code }))}
+                      className={`whitespace-nowrap px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-amber-800 text-white shadow-xs scale-105'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      <span>{curr.flag}</span>
+                      <span>{code}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -317,21 +373,124 @@ export const CostCalculator: React.FC<CostCalculatorProps> = ({
                 <div>
                   <div className="text-[10px] text-stone-400">رأس المال المطلوب</div>
                   <div className="text-xs sm:text-sm font-bold font-mono-numbers text-stone-200 mt-0.5">
-                    {formatNum(costResult.totalBatchCost)}
+                    {formatNum(costResult.totalBatchCost)} {costing.currency}
                   </div>
                 </div>
                 <div>
                   <div className="text-[10px] text-stone-400">إجمالي المبيعات</div>
                   <div className="text-xs sm:text-sm font-bold font-mono-numbers text-white mt-0.5">
-                    {formatNum(costResult.totalBatchRevenueRetail)}
+                    {formatNum(costResult.totalBatchRevenueRetail)} {costing.currency}
                   </div>
                 </div>
                 <div>
                   <div className="text-[10px] text-amber-400">صافي الأرباح</div>
                   <div className="text-xs sm:text-sm font-bold font-mono-numbers text-amber-400 mt-0.5">
-                    +{formatNum(costResult.totalBatchProfitRetail)}
+                    +{formatNum(costResult.totalBatchProfitRetail)} {costing.currency}
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Global Multi-Currency Export & Pricing Table */}
+            <div className="p-4 sm:p-5 bg-gradient-to-br from-stone-50 via-white to-amber-50/50 border border-amber-200 rounded-2xl shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-stone-200/80 pb-3">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-amber-700" />
+                  <span className="text-xs font-bold text-stone-900">
+                    جدول مقارنة الأسعار بالعملات العالمية والتصدير
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <span className="text-stone-500">مقارنة مع:</span>
+                  <select
+                    value={comparisonCurrency}
+                    onChange={(e) => setComparisonCurrency(e.target.value)}
+                    className="px-2 py-0.5 bg-white border border-stone-300 rounded-lg text-xs font-bold text-stone-800 cursor-pointer"
+                  >
+                    {WORLD_CURRENCIES.map((c) => (
+                      <option key={`comp-${c.code}`} value={c.code}>
+                        {c.flag} {c.code} ({c.symbolAr})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-stone-500 leading-relaxed">
+                تحويل فوري لتكلفة وسعر بيع الزجاجة الواحدة وفق أسعار الصرف العالمية المرجعية لتسعير عطرك محلياً ودولياً:
+              </p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead>
+                    <tr className="border-b border-stone-200 text-stone-500 font-semibold text-[11px]">
+                      <th className="pb-2">العملة العالمية</th>
+                      <th className="pb-2">تكلفة الزجاجة</th>
+                      <th className="pb-2">سعر الجملة</th>
+                      <th className="pb-2 text-amber-900 font-bold">سعر التجزئة (RRP)</th>
+                      <th className="pb-2 text-emerald-700">صافي الربح</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100 font-mono-numbers">
+                    {[
+                      'USD',
+                      'EUR',
+                      'GBP',
+                      'SAR',
+                      'AED',
+                      'EGP',
+                      'KWD',
+                      comparisonCurrency !== 'USD' &&
+                      comparisonCurrency !== 'EUR' &&
+                      comparisonCurrency !== 'GBP' &&
+                      comparisonCurrency !== 'SAR' &&
+                      comparisonCurrency !== 'AED' &&
+                      comparisonCurrency !== 'EGP' &&
+                      comparisonCurrency !== 'KWD'
+                        ? comparisonCurrency
+                        : 'TRY',
+                    ].map((code) => {
+                      const curr = findCurrencyByCode(code);
+                      const costConv = convertCurrency(costResult.totalCostPerBottle, costing.currency, code);
+                      const wholesaleConv = convertCurrency(costResult.suggestedWholesalePrice, costing.currency, code);
+                      const retailConv = convertCurrency(costResult.suggestedRetailPrice, costing.currency, code);
+                      const profitConv = convertCurrency(costResult.profitPerBottleRetail, costing.currency, code);
+                      const isCostingBase = costing.currency === code;
+
+                      return (
+                        <tr
+                          key={`row-${code}`}
+                          className={`hover:bg-amber-50/50 transition-colors ${
+                            isCostingBase ? 'bg-amber-100/50 font-bold' : ''
+                          }`}
+                        >
+                          <td className="py-2.5 font-sans flex items-center gap-1.5 font-semibold text-stone-900">
+                            <span>{curr.flag}</span>
+                            <span>{curr.nameAr}</span>
+                            <span className="text-[10px] text-stone-500 font-mono">({code})</span>
+                          </td>
+                          <td className="py-2.5 text-stone-700">
+                            {formatNum(costConv)} {curr.symbolAr}
+                          </td>
+                          <td className="py-2.5 text-stone-800">
+                            {formatNum(wholesaleConv)} {curr.symbolAr}
+                          </td>
+                          <td className="py-2.5 font-bold text-amber-900">
+                            {formatNum(retailConv)} {curr.symbolAr}
+                          </td>
+                          <td className="py-2.5 font-bold text-emerald-700">
+                            +{formatNum(profitConv)} {curr.symbolAr}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pt-2 border-t border-stone-200/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[10px] text-stone-400 font-mono">
+                <span>* أسعار الصرف مرجعية معيارية مبنية على مؤشر الدولار العالمي (160+ عملة عالمية مدعومة).</span>
+                <span className="text-amber-800 font-semibold">منصة صمم عطرك مع شام</span>
               </div>
             </div>
 

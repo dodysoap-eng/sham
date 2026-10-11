@@ -30,8 +30,9 @@ import {
 import { WorldPerfumeRecipe } from './data/worldPerfumes';
 import { calculatePerfumeFormulation } from './utils/calculations';
 import { ExtractedAIPerfume } from './utils/aiFormulaExtractor';
-import { SupportedLanguage } from './types/i18n';
+import { SupportedLanguage, SUPPORTED_LANGUAGES } from './types/i18n';
 import { getInitialLanguage, saveLanguage } from './utils/i18n';
+import { LanguageProvider } from './context/LanguageContext';
 import {
   UserEnvironmentProfile,
   getInitialUserEnvironment,
@@ -139,7 +140,8 @@ export default function App() {
   const handleSelectLanguage = (lang: SupportedLanguage) => {
     setCurrentLang(lang);
     saveLanguage(lang);
-    showToast(`🌐 تم تغيير لغة العرض بنجاح إلى: ${lang.toUpperCase()}`);
+    const langInfo = SUPPORTED_LANGUAGES.find((l) => l.code === lang);
+    showToast(`🌐 تم تغيير لغة المنصة بنجاح إلى: ${langInfo?.flag || ''} «${langInfo?.nativeName || lang}» (${langInfo?.dir.toUpperCase() || 'RTL'})`);
   };
 
   const handleUpdateEnvironment = (profile: UserEnvironmentProfile) => {
@@ -375,69 +377,74 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900 selection:bg-amber-200">
-      
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 left-6 z-50 bg-stone-900 text-white px-5 py-3.5 rounded-2xl shadow-xl border border-stone-800 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-3">
-          <Check className="w-4 h-4 text-emerald-400" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
+    <LanguageProvider initialLang={currentLang} onLanguageChange={handleSelectLanguage}>
+      <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900 selection:bg-amber-200">
+        
+        {/* Toast Notification */}
+        {toastMessage && (
+          <div className="fixed bottom-6 left-6 z-50 bg-stone-900 text-white px-5 py-3.5 rounded-2xl shadow-xl border border-stone-800 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom-3">
+            <Check className="w-4 h-4 text-emerald-400" />
+            <span>{toastMessage}</span>
+          </div>
+        )}
 
-      {/* Top Header */}
-      <Header
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenPrintModal={() => setIsSpecModalOpen(true)}
-        currentLang={currentLang}
-        onSelectLanguage={handleSelectLanguage}
-        currentUser={currentUser}
-        onOpenAuthModal={() => setIsAuthModalOpen(true)}
-        onLogout={handleLogout}
-        currentEnvironment={currentEnvironment}
-        onOpenEnvironmentModal={() => setIsEnvironmentModalOpen(true)}
-        onOpenPrivacyModal={() => setIsPrivacyModalOpen(true)}
-      />
-
-      {/* Hero Showcase (only shown when in concentration tab or home) */}
-      {activeTab === 'concentration' && (
-        <Hero
-          onQuickStart={(tab) => {
-            setActiveTab(tab);
-          }}
+        {/* Top Header */}
+        <Header
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onOpenPrintModal={() => setIsSpecModalOpen(true)}
           currentLang={currentLang}
+          onSelectLanguage={handleSelectLanguage}
+          currentUser={currentUser}
+          onOpenAuthModal={() => setIsAuthModalOpen(true)}
+          onLogout={handleLogout}
+          currentEnvironment={currentEnvironment}
+          onOpenEnvironmentModal={() => setIsEnvironmentModalOpen(true)}
+          onOpenPrivacyModal={() => setIsPrivacyModalOpen(true)}
         />
-      )}
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-10">
-        {activeTab === 'home' && (
-          <HomeHub
-            onNavigate={(tabId) => setActiveTab(tabId)}
-            currentLang={currentLang}
-            formulation={formulation}
-            pyramidNotes={pyramidNotes}
-            savedFormulas={savedFormulas}
-            currentEnvironment={currentEnvironment}
-            detailedAddress={detailedAddress}
-            currentUser={currentUser}
-            onOpenEnvironmentModal={() => setIsEnvironmentModalOpen(true)}
-            onOpenPrivacyModal={() => setIsPrivacyModalOpen(true)}
-            onOpenAuthModal={() => setIsAuthModalOpen(true)}
-            onOpenSpecModal={() => setIsSpecModalOpen(true)}
-          />
-        )}
-
+        {/* Hero Showcase (only shown when in concentration tab or home) */}
         {activeTab === 'concentration' && (
-          <ConcentrationCalculator
-            formulation={formulation}
-            setFormulation={setFormulation}
-            result={calculationResult}
-            onSaveFormula={() => setIsSaveModalOpen(true)}
-            onSendToCosting={() => setActiveTab('costing')}
+          <Hero
+            onQuickStart={(tab) => {
+              setActiveTab(tab);
+            }}
+            currentLang={currentLang}
           />
         )}
+
+        {/* Main Container */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-10">
+          {activeTab === 'home' && (
+            <HomeHub
+              onNavigate={(tabId) => setActiveTab(tabId)}
+              currentLang={currentLang}
+              formulation={formulation}
+              pyramidNotes={pyramidNotes}
+              savedFormulas={savedFormulas}
+              currentEnvironment={currentEnvironment}
+              detailedAddress={detailedAddress}
+              currentUser={currentUser}
+              onOpenEnvironmentModal={() => setIsEnvironmentModalOpen(true)}
+              onOpenPrivacyModal={() => setIsPrivacyModalOpen(true)}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              onOpenSpecModal={() => setIsSpecModalOpen(true)}
+            />
+          )}
+
+          {activeTab === 'concentration' && (
+            <ConcentrationCalculator
+              formulation={formulation}
+              setFormulation={setFormulation}
+              result={calculationResult}
+              onSaveFormula={() => setIsSaveModalOpen(true)}
+              onSendToCosting={() => setActiveTab('costing')}
+              pyramidNotes={pyramidNotes}
+              setPyramidNotes={setPyramidNotes}
+              onNavigateToTab={(tab) => setActiveTab(tab)}
+              currentLang={currentLang}
+            />
+          )}
 
         {activeTab === 'perfume_news' && (
           <WorldPerfumeNews
@@ -476,6 +483,7 @@ export default function App() {
           <CostCalculator
             formulation={formulation}
             calculationResult={calculationResult}
+            currentCurrencyCode={currentEnvironment.currencyCode}
           />
         )}
 
@@ -513,7 +521,11 @@ export default function App() {
       />
 
       {/* Footer */}
-      <Footer setActiveTab={setActiveTab} />
+      <Footer
+        setActiveTab={setActiveTab}
+        currentLang={currentLang}
+        onSelectLanguage={handleSelectLanguage}
+      />
 
       {/* Save Formula Modal */}
       {isSaveModalOpen && (
@@ -658,6 +670,8 @@ export default function App() {
           }}
           onApplyRegionalFormulaToWorkbench={handleApplyToConcentrationCalculator}
           onClose={() => setIsEnvironmentModalOpen(false)}
+          currentLang={currentLang}
+          onSelectLanguage={handleSelectLanguage}
         />
       )}
 
@@ -670,6 +684,7 @@ export default function App() {
         />
       )}
 
-    </div>
+      </div>
+    </LanguageProvider>
   );
 }

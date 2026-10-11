@@ -19,6 +19,11 @@ import {
   Send,
   Download,
   Info,
+  Coins,
+  ArrowRightLeft,
+  TrendingUp,
+  DollarSign,
+  Languages,
 } from 'lucide-react';
 import {
   WORLD_COUNTRIES,
@@ -26,16 +31,24 @@ import {
   searchCountries,
   findCountryByCode,
 } from '../data/worldCountries';
+import {
+  WORLD_CURRENCIES,
+  WorldCurrency,
+  findCurrencyByCode,
+  convertCurrency,
+} from '../data/worldCurrencies';
 import { UserDetailedAddress, FACILITY_TYPE_LABELS } from '../types/address';
 import {
   UserEnvironmentProfile,
   createEnvironmentProfileFromCountry,
   saveUserEnvironment,
+  updateProfileCurrency,
 } from '../utils/environmentAdapter';
 import { saveDetailedAddress } from '../utils/addressStorage';
 import { ExtractedAIPerfume } from '../utils/aiFormulaExtractor';
 import { PyramidNote } from '../types/perfume';
 import { UserProfile } from '../types/auth';
+import { SupportedLanguage, SUPPORTED_LANGUAGES, LanguageConfig } from '../types/i18n';
 
 interface CountryAndAddressModalProps {
   currentProfile: UserEnvironmentProfile;
@@ -45,6 +58,8 @@ interface CountryAndAddressModalProps {
   onUpdateAddress: (newAddress: UserDetailedAddress) => void;
   onApplyRegionalFormulaToWorkbench: (formula: ExtractedAIPerfume) => void;
   onClose: () => void;
+  currentLang?: SupportedLanguage;
+  onSelectLanguage?: (lang: SupportedLanguage) => void;
 }
 
 export const CountryAndAddressModal: React.FC<CountryAndAddressModalProps> = ({
@@ -55,8 +70,10 @@ export const CountryAndAddressModal: React.FC<CountryAndAddressModalProps> = ({
   onUpdateAddress,
   onApplyRegionalFormulaToWorkbench,
   onClose,
+  currentLang = 'ar',
+  onSelectLanguage,
 }) => {
-  const [activeTab, setActiveTab] = useState<'country' | 'address'>('country');
+  const [activeTab, setActiveTab] = useState<'country' | 'address' | 'currencies' | 'languages'>('country');
   const [searchQuery, setSearchQuery] = useState('');
   const [regionFilter, setRegionFilter] = useState<'all' | 'arab' | 'europe' | 'asia' | 'americas'>('all');
   const [selectedCountryCode, setSelectedCountryCode] = useState<string>(
@@ -68,8 +85,73 @@ export const CountryAndAddressModal: React.FC<CountryAndAddressModalProps> = ({
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  // Currencies tab state
+  const [currencySearch, setCurrencySearch] = useState('');
+  const [currencyRegion, setCurrencyRegion] = useState<'all' | 'arab' | 'europe' | 'asia' | 'americas' | 'africa' | 'oceania'>('all');
+  const [currencySavedMessage, setCurrencySavedMessage] = useState<string | null>(null);
+
+  // Language tab state
+  const [languageSearch, setLanguageSearch] = useState('');
+  const [languageSavedMessage, setLanguageSavedMessage] = useState<string | null>(null);
+
+  // Live Currency Converter state
+  const [calcAmount, setCalcAmount] = useState<number>(100);
+  const [calcFromCurrency, setCalcFromCurrency] = useState<string>(currentProfile.currencyCode || 'SAR');
+  const [calcToCurrency, setCalcToCurrency] = useState<string>('USD');
+
   const selectedCountry = findCountryByCode(selectedCountryCode) || WORLD_COUNTRIES[0];
   const activeProfile = createEnvironmentProfileFromCountry(selectedCountry);
+
+  // Filtered world currencies
+  const filteredCurrencies = WORLD_CURRENCIES.filter((c) => {
+    if (currencyRegion !== 'all' && c.region !== currencyRegion) return false;
+    if (!currencySearch.trim()) return true;
+    const q = currencySearch.toLowerCase().trim();
+    return (
+      c.code.toLowerCase().includes(q) ||
+      c.nameAr.toLowerCase().includes(q) ||
+      c.nameEn.toLowerCase().includes(q) ||
+      c.symbolAr.toLowerCase().includes(q) ||
+      c.symbolEn.toLowerCase().includes(q)
+    );
+  });
+
+  // Filtered languages
+  const filteredLanguages = SUPPORTED_LANGUAGES.filter((l) => {
+    if (!languageSearch.trim()) return true;
+    const q = languageSearch.toLowerCase().trim();
+    return (
+      l.name.toLowerCase().includes(q) ||
+      l.nativeName.toLowerCase().includes(q) ||
+      l.code.toLowerCase().includes(q)
+    );
+  });
+
+  const handleSelectLanguage = (langCode: SupportedLanguage) => {
+    if (onSelectLanguage) {
+      onSelectLanguage(langCode);
+      const conf = SUPPORTED_LANGUAGES.find((l) => l.code === langCode);
+      setLanguageSavedMessage(`تم تغيير لغة المنصة فوراً إلى: ${conf?.flag} «${conf?.nativeName} (${conf?.name})» وتطبيق اتجاه (${conf?.dir.toUpperCase()})`);
+      setTimeout(() => {
+        setLanguageSavedMessage(null);
+      }, 3500);
+    }
+  };
+
+  const handleSelectLabCurrency = (curr: WorldCurrency) => {
+    const updated = updateProfileCurrency(
+      currentProfile,
+      curr.code,
+      curr.symbolAr,
+      curr.symbolEn
+    );
+    onUpdateProfile(updated);
+    setCalcFromCurrency(curr.code);
+    setCurrencySavedMessage(`تم تعيين ${curr.flag} «${curr.nameAr} (${curr.code})» كعملة رسمية للمعمل بنجاح!`);
+    setTimeout(() => {
+      setCurrencySavedMessage(null);
+    }, 3500);
+  };
 
   // Filtered countries
   const filteredCountries = searchCountries(searchQuery).filter((c) => {
@@ -203,10 +285,38 @@ export const CountryAndAddressModal: React.FC<CountryAndAddressModalProps> = ({
             }`}
           >
             <Building className="w-4 h-4 text-amber-700" />
-            <span>2. خانات العنوان التفصيلي ومقر المعمل</span>
+            <span>2. خانات العنوان ومقر المعمل</span>
             {addressForm.city && (
               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
             )}
+          </button>
+          <button
+            onClick={() => setActiveTab('currencies')}
+            className={`flex-1 py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === 'currencies'
+                ? 'bg-white text-stone-900 shadow-xs border border-stone-200/80 font-bold'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/50'
+            }`}
+          >
+            <Coins className="w-4 h-4 text-amber-700" />
+            <span>3. العملات ({WORLD_CURRENCIES.length})</span>
+            <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-mono font-bold">
+              {currentProfile.currencyCode}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('languages')}
+            className={`flex-1 py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === 'languages'
+                ? 'bg-white text-stone-900 shadow-xs border border-stone-200/80 font-bold'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/50'
+            }`}
+          >
+            <Languages className="w-4 h-4 text-amber-700" />
+            <span>4. خانة تغيير اللغة ({SUPPORTED_LANGUAGES.length} لغات)</span>
+            <span className="px-1.5 py-0.5 rounded bg-amber-200 text-amber-950 text-[10px] font-mono font-bold">
+              {currentLang.toUpperCase()}
+            </span>
           </button>
         </div>
 
@@ -600,6 +710,407 @@ export const CountryAndAddressModal: React.FC<CountryAndAddressModalProps> = ({
               </div>
 
             </form>
+          )}
+
+          {/* TAB 3: ALL WORLD CURRENCIES & LIVE CONVERTER */}
+          {activeTab === 'currencies' && (
+            <div className="space-y-6 animate-in fade-in">
+              
+              {/* Active Lab Currency Highlight Card */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-50 to-stone-50 border border-amber-300 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-stone-950 flex items-center justify-center text-2xl font-bold shadow-md">
+                    {findCurrencyByCode(currentProfile.currencyCode).flag}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-stone-900 text-base sm:text-lg">
+                        {findCurrencyByCode(currentProfile.currencyCode).nameAr}
+                      </span>
+                      <span className="text-xs text-amber-900 font-mono font-bold bg-amber-200/80 px-2 py-0.5 rounded-md">
+                        {currentProfile.currencyCode} · {currentProfile.currencySymbolAr}
+                      </span>
+                    </div>
+                    <p className="text-xs text-stone-600 mt-0.5">
+                      العملة الرسمية المعتمدة حالياً لحساب التكاليف والأرباح وتسعير زجاجات العطر في المعمل.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-left md:text-right text-xs text-stone-500 font-mono">
+                  <span>سعر الصرف المرجعي:</span>
+                  <div className="font-bold text-stone-800 text-sm">
+                    1 USD ≈ {findCurrencyByCode(currentProfile.currencyCode).rateToUSD} {currentProfile.currencyCode}
+                  </div>
+                </div>
+              </div>
+
+              {currencySavedMessage && (
+                <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>{currencySavedMessage}</span>
+                </div>
+              )}
+
+              {/* Live Interactive Currency Converter */}
+              <div className="p-5 rounded-2xl bg-stone-900 text-white border border-stone-800 shadow-lg space-y-4">
+                <div className="flex items-center justify-between border-b border-stone-800 pb-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+                    <ArrowRightLeft className="w-4 h-4 text-amber-400" />
+                    <span>محول ومطابق العملات العالمية اللحظي</span>
+                  </div>
+                  <span className="text-[11px] text-stone-400 font-mono">
+                    أسعار مرجعية محدثة لجميع العملات
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                  {/* Amount Input */}
+                  <div className="md:col-span-3">
+                    <label className="text-[11px] text-stone-400 block mb-1">المبلغ:</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={calcAmount}
+                      onChange={(e) => setCalcAmount(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-sm font-mono font-bold text-white focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+
+                  {/* From Currency */}
+                  <div className="md:col-span-4">
+                    <label className="text-[11px] text-stone-400 block mb-1">من عملة:</label>
+                    <select
+                      value={calcFromCurrency}
+                      onChange={(e) => setCalcFromCurrency(e.target.value)}
+                      className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-xs font-semibold text-stone-200 focus:outline-none focus:border-amber-400"
+                    >
+                      {WORLD_CURRENCIES.map((c) => (
+                        <option key={`from-${c.code}`} value={c.code}>
+                          {c.flag} {c.code} - {c.nameAr} ({c.symbolAr})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Swap Button */}
+                  <div className="md:col-span-1 flex justify-center pt-4 md:pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const temp = calcFromCurrency;
+                        setCalcFromCurrency(calcToCurrency);
+                        setCalcToCurrency(temp);
+                      }}
+                      className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-400 border border-stone-700 transition-colors cursor-pointer"
+                      title="تبديل اتجاه التحويل"
+                    >
+                      <ArrowRightLeft className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* To Currency */}
+                  <div className="md:col-span-4">
+                    <label className="text-[11px] text-stone-400 block mb-1">إلى عملة:</label>
+                    <select
+                      value={calcToCurrency}
+                      onChange={(e) => setCalcToCurrency(e.target.value)}
+                      className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-xl text-xs font-semibold text-stone-200 focus:outline-none focus:border-amber-400"
+                    >
+                      {WORLD_CURRENCIES.map((c) => (
+                        <option key={`to-${c.code}`} value={c.code}>
+                          {c.flag} {c.code} - {c.nameAr} ({c.symbolAr})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Conversion Result Display */}
+                <div className="p-3.5 bg-stone-850 rounded-xl border border-stone-750 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-stone-400">النتيجة:</span>
+                    <span className="font-mono font-extrabold text-base sm:text-lg text-amber-400">
+                      {calcAmount.toLocaleString()} {findCurrencyByCode(calcFromCurrency).symbolAr} ={' '}
+                      {convertCurrency(calcAmount, calcFromCurrency, calcToCurrency).toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                      })}{' '}
+                      {findCurrencyByCode(calcToCurrency).symbolAr} ({calcToCurrency})
+                    </span>
+                  </div>
+
+                  <div className="text-[11px] text-stone-400 font-mono">
+                    1 {calcFromCurrency} ≈{' '}
+                    {convertCurrency(1, calcFromCurrency, calcToCurrency).toFixed(4)} {calcToCurrency}
+                  </div>
+                </div>
+              </div>
+
+              {/* Search & Category Filter */}
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                  
+                  {/* Search Bar */}
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-stone-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="ابحث عن أي عملة بكود الأيزو (USD, SAR, EUR, EGP) أو الاسم (ريال، درهم، دولار، دينار)..."
+                      value={currencySearch}
+                      onChange={(e) => setCurrencySearch(e.target.value)}
+                      className="w-full pr-10 pl-4 py-2.5 rounded-xl border border-stone-200 bg-stone-50 text-xs sm:text-sm text-stone-900 focus:outline-none focus:border-amber-700 focus:bg-white transition-colors"
+                    />
+                  </div>
+
+                  <span className="text-xs text-stone-500 font-medium shrink-0 self-center">
+                    {filteredCurrencies.length} عملة عالمية متاحة
+                  </span>
+                </div>
+
+                {/* Region Filter Buttons */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+                  {[
+                    { id: 'all', label: 'كافة العملات' },
+                    { id: 'arab', label: 'الدول العربية' },
+                    { id: 'europe', label: 'أوروبا' },
+                    { id: 'asia', label: 'آسيا والشرق الأوسط' },
+                    { id: 'americas', label: 'الأمريكتان' },
+                    { id: 'africa', label: 'إفريقيا' },
+                    { id: 'oceania', label: 'أوقيانوسيا' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setCurrencyRegion(cat.id as any)}
+                      className={`whitespace-nowrap px-3 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer ${
+                        currencyRegion === cat.id
+                          ? 'bg-amber-800 text-white shadow-xs'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Grid of All World Currencies */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-[380px] overflow-y-auto pr-1">
+                {filteredCurrencies.map((curr) => {
+                  const isActive = currentProfile.currencyCode === curr.code;
+
+                  return (
+                    <div
+                      key={curr.code}
+                      className={`p-3.5 rounded-xl border transition-all flex flex-col justify-between gap-2.5 ${
+                        isActive
+                          ? 'bg-amber-50/90 border-amber-400 ring-2 ring-amber-400/30 shadow-xs'
+                          : 'bg-white border-stone-200/90 hover:border-stone-300 hover:bg-stone-50/50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-2xl">{curr.flag}</span>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-stone-900 text-xs">
+                                {curr.nameAr}
+                              </span>
+                              <span className="font-mono text-[10px] font-bold text-stone-600 bg-stone-100 px-1.5 py-0.2 rounded">
+                                {curr.code}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-stone-500 font-mono">
+                              {curr.nameEn} · {curr.symbolAr}
+                            </span>
+                          </div>
+                        </div>
+
+                        {curr.popular && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 text-[9px] font-bold">
+                            شائعة
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-stone-100 text-[10px]">
+                        <span className="text-stone-500 font-mono">
+                          1 USD ≈ {curr.rateToUSD} {curr.code}
+                        </span>
+
+                        {isActive ? (
+                          <span className="text-emerald-700 font-bold flex items-center gap-1 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            <span>مفعلة بالمعمل</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectLabCurrency(curr)}
+                            className="px-2.5 py-1 rounded-md bg-stone-900 hover:bg-amber-700 text-white font-semibold transition-colors cursor-pointer"
+                          >
+                            تعيين كعملة المعمل
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+            </div>
+          )}
+
+          {/* TAB 4: PLATFORM LANGUAGES SELECTOR (10 LANGUAGES) */}
+          {activeTab === 'languages' && (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              
+              {/* Header Banner */}
+              <div className="bg-gradient-to-r from-stone-900 via-amber-950 to-stone-900 text-white p-5 rounded-2xl shadow-sm border border-amber-900/40">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-300 flex items-center justify-center border border-amber-500/40 text-xl shrink-0">
+                      <Languages className="w-6 h-6 text-amber-300" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-white flex items-center gap-2">
+                        <span>خانة تغيير واختيار لغة المنصة</span>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold border border-amber-500/30">
+                          10 لغات عالمية
+                        </span>
+                      </h4>
+                      <p className="text-xs text-stone-300 mt-1 max-w-xl">
+                        اختر اللغة المفضلة للعمل بها داخل المعمل؛ يتم فوراً ضبط اتجاه الواجهة (RTL ⇄ LTR) وترجمة كافة المصطلحات المعملية، مع حفظ التفضيل تلقائياً في متصفحك.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 bg-stone-850/80 p-2.5 rounded-xl border border-stone-700/60 shrink-0">
+                    <span className="text-2xl leading-none">
+                      {SUPPORTED_LANGUAGES.find((l) => l.code === currentLang)?.flag || '🇸🇦'}
+                    </span>
+                    <div className="text-right">
+                      <div className="text-[10px] text-stone-400">اللغة الحالية المفعلة:</div>
+                      <div className="font-bold text-xs text-amber-300">
+                        {SUPPORTED_LANGUAGES.find((l) => l.code === currentLang)?.nativeName} ({currentLang.toUpperCase()})
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notification Banner */}
+              {languageSavedMessage && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs animate-in fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{languageSavedMessage}</span>
+                </div>
+              )}
+
+              {/* Search Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-stone-50 p-3 rounded-xl border border-stone-200">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="ابحث عن لغة (مثال: العربية, English, Français, Deutsch, 中文)..."
+                    value={languageSearch}
+                    onChange={(e) => setLanguageSearch(e.target.value)}
+                    className="w-full pl-3 pr-9 py-2 bg-white border border-stone-200 rounded-xl text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+                <div className="text-xs text-stone-500 font-medium px-2">
+                  عرض {filteredLanguages.length} من أصل {SUPPORTED_LANGUAGES.length} لغة عالمية
+                </div>
+              </div>
+
+              {/* Languages Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {filteredLanguages.map((lang: LanguageConfig) => {
+                  const isActive = lang.code === currentLang;
+                  return (
+                    <div
+                      key={lang.code}
+                      onClick={() => handleSelectLanguage(lang.code)}
+                      className={`p-4 rounded-2xl border transition-all cursor-pointer relative group flex flex-col justify-between ${
+                        isActive
+                          ? 'bg-amber-50/80 border-amber-400 shadow-sm ring-2 ring-amber-300/40'
+                          : 'bg-white hover:bg-stone-50 border-stone-200 hover:border-amber-300'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-3">
+                            <span className="text-3xl group-hover:scale-110 transition-transform">
+                              {lang.flag}
+                            </span>
+                            <div>
+                              <div className="font-bold text-sm text-stone-900 group-hover:text-amber-900 transition-colors">
+                                {lang.nativeName}
+                              </div>
+                              <div className="text-xs text-stone-500">
+                                {lang.name} · <span className="font-mono font-bold uppercase">{lang.code}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-semibold ${
+                                lang.dir === 'rtl'
+                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                  : 'bg-blue-50 text-blue-800 border border-blue-200'
+                              }`}
+                            >
+                              {lang.dir === 'rtl' ? 'RTL (يمين)' : 'LTR (يسار)'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Sample preview text */}
+                        <div className="mt-2.5 p-2 rounded-lg bg-stone-100/70 border border-stone-200/60 text-[11px] text-stone-600 font-serif-luxury truncate">
+                          {lang.code === 'ar' && '«صمم عطرك مع شام: الدقة الكيميائية والإبداع الفني العالمي»'}
+                          {lang.code === 'en' && '“Design Perfume with Sham: Chemical Precision & Haute Artistry”'}
+                          {lang.code === 'fr' && '«Créez Votre Parfum avec Sham : Précision Chimique et Haute Parfumerie»'}
+                          {lang.code === 'es' && '«Diseña tu Perfume con Sham: Precisión Química y Arte Olfativo»'}
+                          {lang.code === 'it' && '«Disegna il tuo Profumo con Sham: Precisione Chimica e Bellezza»'}
+                          {lang.code === 'de' && '«Parfüm Kreieren mit Sham: Chemische Präzision & Duftkunst»'}
+                          {lang.code === 'ru' && '«Создай свой парфюм с Шам: Точность и парфюмерное искусство»'}
+                          {lang.code === 'zh' && '“与Sham一起设计香水：化学精密与高定时香水艺术”'}
+                          {lang.code === 'tr' && '«Sham ile Parfümünü Tasarla: Kimyasal Hassasiyet ve Koku Sanatı»'}
+                          {lang.code === 'fa' && '«عطر خود را با شام طراحی کنید: دقت شیمیایی و هنر عطرسازی»'}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 mt-3 border-t border-stone-150 text-xs">
+                        <span className="text-[11px] text-stone-500">
+                          {isActive ? 'اللغة النشطة حالياً للمنصة' : 'انقر للتبديل الفوري'}
+                        </span>
+
+                        {isActive ? (
+                          <span className="text-amber-900 font-bold flex items-center gap-1.5 bg-amber-200/80 px-2.5 py-1 rounded-lg">
+                            <Check className="w-3.5 h-3.5 text-amber-900 stroke-[3]" />
+                            <span>مفعلة</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectLanguage(lang.code);
+                            }}
+                            className="px-3 py-1 rounded-lg bg-stone-900 hover:bg-amber-800 text-white font-semibold transition-colors cursor-pointer text-xs"
+                          >
+                            تفعيل هذه اللغة
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+            </div>
           )}
 
         </div>
